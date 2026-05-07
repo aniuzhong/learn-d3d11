@@ -13,6 +13,12 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 | 2.3 hello_triangle_exercise1 | **合并到 2.1 末尾** | 将 2.1 的顶点从 3 个扩为 6 个、Draw 计数从 3 改为 6，差异仅两行。作为 2.1 末尾的"试试看"提示即可。 |
 | 2.4 hello_triangle_exercise2 | **保留，精简** | 两个独立 VBO + 两次 Draw 调用。引入"运行时切换顶点缓冲区"的概念，是真实渲染的基础模式。 |
 | 2.5 hello_triangle_exercise3 | **保留，精简** | 两个不同的 PixelShader + 运行时 `PSSetShader` 切换。引入"着色器对象可独立替换"的概念，为后续材质系统铺垫。 |
+| 3.1 shaders_uniform | **保留，重构** → 3.1 shaders_cbuffer | OpenGL 用 `uniform` + `glUniform4f` 传递 CPU 数据到着色器；D3D11 用 Constant Buffer（`cbuffer` + `UpdateSubresource` + `*SetConstantBuffers`）。这是 D3D11 最核心的数据通道，独立成节。动画颜色效果与 OpenGL 一致。 |
+| 3.2 shaders_interpolation | **保留** → 3.2 shaders_interpolation | 光栅化插值是图形学通用概念。区别在于 HLSL 用语义（`COLOR`, `TEXCOORD`）替代 GLSL 的 `in`/`out` 关键字。同时引入多属性 InputLayout（POSITION + COLOR）和交错顶点缓冲。 |
+| 3.3 shaders_class | **跳过** | OpenGL 的 shader 编译+链接样板码多达 ~40 行（`glCreateShader` → `glShaderSource` → `glCompileShader` → 错误检查 → `glCreateProgram` → `glAttachShader` ×N → `glLinkProgram` → 错误检查 → `glDeleteShader`），封装成类有明显收益。D3D11 仅需 `D3DCompile` + `CreateVertexShader` + `CreatePixelShader` 三步，且项目中已有的 `CompileShader()` 辅助函数已足够。强行封装反而增加理解负担。 |
+| 3.4 shaders_exercise1 | **保留** → 3.3 | 练习修改 HLSL 顶点着色器逻辑，直接观察效果。D3D11 的等价操作与 OpenGL 一致：改一行 HLSL 代码。 |
+| 3.5 shaders_exercise2 | **保留** → 3.4 | 练习向 Constant Buffer 结构体添加新字段并在 VS 中使用。相比 OpenGL "加一个 uniform" 的教学，D3D11 版本额外训练 C++ 结构体与 HLSL cbuffer 布局的对应关系。 |
+| 3.6 shaders_exercise3 | **保留** → 3.5 | 练习输出顶点位置作为颜色，深入理解光栅化插值行为。HLSL 语义直接替换，与 OpenGL 教学目的一致。 |
 
 ## D3D11 与 OpenGL 的关键差异点（本章涉及）
 
@@ -27,25 +33,36 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 | 绘制调用 | `glDrawArrays(mode, first, count)` | `Draw(vertexCount, startVertex)` | 2.1 |
 | 索引缓冲 | EBO (存储在 VAO) | `IASetIndexBuffer` + `DrawIndexed` | 2.2 |
 | 正面绕序 | 默认逆时针 (CCW) | 默认顺时针 (CW) | 2.1, 2.2 |
-| 着色器切换 | `glUseProgram(shaderProgram)` | `VSSetShader` / `PSSetShader` | 2.5 |
+| 着色器切换 | `glUseProgram(shaderProgram)` | `VSSetShader` / `PSSetShader` (分阶段独立切换) | 2.5 |
+| CPU→GPU 数据传递 | `uniform` + `glUniform*` (逐变量查询 location) | Constant Buffer (`cbuffer` + `UpdateSubresource` + `*SetConstantBuffers`) | 3.1 |
+| 着色器间数据传递 | `in` / `out` 关键字 | 语义 (Semantics: `COLOR`, `TEXCOORD` 等，`SV_` 为系统语义) | 3.2 |
+| HLSL cbuffer 内存布局 | N/A (GLSL 自动布局) | 16 字节对齐 + `packoffset` 手动控制 | 3.1 |
 
 ## D3D11 管线（本章涉及的阶段）
 
 ```
+  Constant Buffer --> Vertex Shader (3.1 加入)
+       |                  |
+  VSSetConstantBuffers  VSSetShader
+
   Vertex Buffer --> Input Assembler --> Vertex Shader
-       |                   |                  |
-  IASetVertexBuffers   IASetInputLayout   VSSetShader
-                        IASetPrimitiveTopology
-                        
+       |                   |              
+  IASetVertexBuffers   IASetInputLayout   
+                       IASetPrimitiveTopology
+                       
   Index Buffer --> Input Assembler --> ... (2.2 加入)
        |
   IASetIndexBuffer
   DrawIndexed
 
   Vertex Shader --> Rasterizer --> Pixel Shader --> Output Merger --> BackBuffer
-                                        |                  |
-                                    PSSetShader     OMSetRenderTargets
-                                                    (BeginFrame 自动设置)
+       |                               |                  |
+   语义传递                          PSSetShader     OMSetRenderTargets
+  (COLOR, TEXCOORD 等)      PSSetConstantBuffers (3.1)  (BeginFrame 自动设置)
+  
+  Constant Buffer --> Pixel Shader (3.1 加入)
+       |
+  PSSetConstantBuffers
 ```
 
 ## 本章学习路径
@@ -53,9 +70,14 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 ```
 2.1 hello_triangle          第一个三角形：InputLayout + VertexBuffer + HLSL + Draw
 2.2 hello_triangle_indexed  索引导出：矩形 = 4 顶点 + 6 索引
-2.4 exercise2               两个独立 VBO + 两次 Draw 切换
-2.5 exercise3               两个 PixelShader + PSSetShader 运行时切换
-3.x shaders                 HLSL 着色器深入、常量缓冲区
+2.3 exercise2               
+2.4 exercise2               
+2.5 exercise3               
+3.1 shaders_cbuffer         Constant Buffer：CPU→GPU 数据通道（cbuffer + UpdateSubresource）
+3.2 shaders_interpolation   多属性顶点布局 + HLSL 语义传递 + 光栅化插值
+3.4 shaders_exercise1       修改 HLSL 顶点着色器逻辑
+3.5 shaders_exercise2       扩展 Constant Buffer 字段，CPU/GPU 结构体同步修改
+3.6 shaders_exercise3       输出顶点位置为颜色，深入理解插值
 4.x textures                纹理映射
 5.x transformations         矩阵变换、常量缓冲区传 MVP
 6.x coordinate_systems      坐标系统、深度测试
