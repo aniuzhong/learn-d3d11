@@ -10,9 +10,9 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 | 1.2 hello_window_clear | **合并到 2.1** | `ClearRenderTargetView` / `ClearDepthStencilView` 的知识在 2.1 中由 `BeginFrame` 说明，单独成节太单薄。 |
 | 2.1 hello_triangle | **保留** | 第一个有内容的 D3D11 demo：InputLayout、VertexBuffer、HLSL 编译、管线阶段设置、Draw。 |
 | 2.2 hello_triangle_indexed | **保留** | 索引绘制是通用图形学基础，D3D11 的 `IASetIndexBuffer` + `DrawIndexed` 值得独立演示。注意绕序修正。 |
-| 2.3 hello_triangle_exercise1 | **合并到 2.1 末尾** | 将 2.1 的顶点从 3 个扩为 6 个、Draw 计数从 3 改为 6，差异仅两行。作为 2.1 末尾的"试试看"提示即可。 |
-| 2.4 hello_triangle_exercise2 | **保留，精简** | 两个独立 VBO + 两次 Draw 调用。引入"运行时切换顶点缓冲区"的概念，是真实渲染的基础模式。 |
-| 2.5 hello_triangle_exercise3 | **保留，精简** | 两个不同的 PixelShader + 运行时 `PSSetShader` 切换。引入"着色器对象可独立替换"的概念，为后续材质系统铺垫。 |
+| 2.3 hello_triangle_exercise1 | **保留** | 在同一个 VertexBuffer 里放入 6 个顶点（两个三角形并排），`Draw(6,0)` 一次画出。实现正确：顶点绕序已按 D3D11 顺时针正面翻转，位置坐标与 OpenGL 版一致。 |
+| 2.4 hello_triangle_exercise2 | **删除** | OpenGL 2.4 的教学目的是"使用两个独立 VAO 切换图元"。D3D11 没有 VAO 概念——`InputLayout` 只描述顶点格式不绑定缓冲区，"切换 VAO"在 D3D11 里直接退化为 `IASetVertexBuffers` 换 buffer 后 draw，没有新 API 或新概念可教学。保留为独立练习价值过低。 |
+| 2.5 hello_triangle_exercise3 | **保留** | 两个不同的 PixelShader（橙色+黄色）+ 运行时 `PSSetShader` 切换。引入"着色器对象可独立替换"的概念，为后续材质系统铺垫。 |
 | 3.1 shaders_uniform | **保留，重构** → 3.1 shaders_cbuffer | OpenGL 用 `uniform` + `glUniform4f` 传递 CPU 数据到着色器；D3D11 用 Constant Buffer（`cbuffer` + `UpdateSubresource` + `*SetConstantBuffers`）。这是 D3D11 最核心的数据通道，独立成节。动画颜色效果与 OpenGL 一致。 |
 | 3.2 shaders_interpolation | **保留** → 3.2 shaders_interpolation | 光栅化插值是图形学通用概念。区别在于 HLSL 用语义（`COLOR`, `TEXCOORD`）替代 GLSL 的 `in`/`out` 关键字。同时引入多属性 InputLayout（POSITION + COLOR）和交错顶点缓冲。 |
 | 3.3 shaders_class | **跳过** | OpenGL 的 shader 编译+链接样板码多达 ~40 行（`glCreateShader` → `glShaderSource` → `glCompileShader` → 错误检查 → `glCreateProgram` → `glAttachShader` ×N → `glLinkProgram` → 错误检查 → `glDeleteShader`），封装成类有明显收益。D3D11 仅需 `D3DCompile` + `CreateVertexShader` + `CreatePixelShader` 三步，且项目中已有的 `CompileShader()` 辅助函数已足够。强行封装反而增加理解负担。 |
@@ -70,9 +70,8 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 ```
 2.1 hello_triangle          第一个三角形：InputLayout + VertexBuffer + HLSL + Draw
 2.2 hello_triangle_indexed  索引导出：矩形 = 4 顶点 + 6 索引
-2.3 exercise2               
-2.4 exercise2               
-2.5 exercise3               
+2.3 hello_triangle_exercise1  同一 VBO 扩至 6 顶点，一次 Draw 画两个三角形
+2.5 hello_triangle_exercise3  两个 PixelShader 切换，两个三角形上不同颜色（待实现）
 3.1 shaders_cbuffer         Constant Buffer：CPU→GPU 数据通道（cbuffer + UpdateSubresource）
 3.2 shaders_interpolation   多属性顶点布局 + HLSL 语义传递 + 光栅化插值
 3.4 shaders_exercise1       修改 HLSL 顶点着色器逻辑

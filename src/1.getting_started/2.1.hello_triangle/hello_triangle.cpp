@@ -90,7 +90,7 @@ int main()
     ID3D11Device*        device  = fw.GetDevice();
     ID3D11DeviceContext* context = fw.GetContext();
 
-    // 2. 定义顶点数据 -----------------------------------------------------
+    // 2. 定义顶点数据
     // 注意 D3D11 默认正面 = 顺时针绕序（OpenGL 是逆时针）。
     // 三个顶点按屏幕空间顺时针排列（右下 → 左下 → 顶部），确保不被背面剔除。
     float vertices[] = {
@@ -103,8 +103,10 @@ int main()
     // HLSL 字符串 → D3DCompile → Shader Blob → Create*Shader
     ComPtr<ID3DBlob> vsBlob = CompileShader(vertexShaderSource, "main", "vs_5_0");
     ComPtr<ID3DBlob> psBlob = CompileShader(pixelShaderSource, "main", "ps_5_0");
-    if (!vsBlob || !psBlob)
+    if (!vsBlob || !psBlob) {
+        std::cerr << "Failed to compile shaders." << std::endl;
         return -1;
+    }
 
     ComPtr<ID3D11VertexShader> vertexShader;
     ComPtr<ID3D11PixelShader>  pixelShader;
