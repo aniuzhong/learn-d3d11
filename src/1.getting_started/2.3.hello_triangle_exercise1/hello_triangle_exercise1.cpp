@@ -1,7 +1,6 @@
 // [ 2.3 练习 ] 用 glDrawArrays 画两个三角形 —— 在同一个 VAO 里增加顶点
 //     将 2.1 的顶点从 3 个扩为 6 个、Draw 计数从 3 改为 6，差异仅两行
 
-#include <cstddef>
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <wrl/client.h>

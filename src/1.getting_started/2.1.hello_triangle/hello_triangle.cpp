@@ -1,10 +1,10 @@
-#include <framework/Framework.h>
-#include <framework/HrCheck.h>
-
 #include <d3dcompiler.h>
 #include <wrl/client.h>
 
 #include <iostream>
+
+#include <framework/Framework.h>
+#include <framework/HrCheck.h>
 
 using Microsoft::WRL::ComPtr;
 
