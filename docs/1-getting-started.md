@@ -13,12 +13,12 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 | 2.3 hello_triangle_exercise1 | **保留** | 在同一个 VertexBuffer 里放入 6 个顶点（两个三角形并排），`Draw(6,0)` 一次画出。实现正确：顶点绕序已按 D3D11 顺时针正面翻转，位置坐标与 OpenGL 版一致。 |
 | 2.4 hello_triangle_exercise2 | **删除** | OpenGL 2.4 的教学目的是"使用两个独立 VAO 切换图元"。D3D11 没有 VAO 概念——`InputLayout` 只描述顶点格式不绑定缓冲区，"切换 VAO"在 D3D11 里直接退化为 `IASetVertexBuffers` 换 buffer 后 draw，没有新 API 或新概念可教学。保留为独立练习价值过低。 |
 | 2.5 hello_triangle_exercise3 | **保留** | 两个不同的 PixelShader（橙色+黄色）+ 运行时 `PSSetShader` 切换。引入"着色器对象可独立替换"的概念，为后续材质系统铺垫。 |
-| 3.1 shaders_uniform | **保留，重构** → 3.1 shaders_cbuffer | OpenGL 用 `uniform` + `glUniform4f` 传递 CPU 数据到着色器；D3D11 用 Constant Buffer（`cbuffer` + `UpdateSubresource` + `*SetConstantBuffers`）。这是 D3D11 最核心的数据通道，独立成节。动画颜色效果与 OpenGL 一致。 |
-| 3.2 shaders_interpolation | **保留** → 3.2 shaders_interpolation | 光栅化插值是图形学通用概念。区别在于 HLSL 用语义（`COLOR`, `TEXCOORD`）替代 GLSL 的 `in`/`out` 关键字。同时引入多属性 InputLayout（POSITION + COLOR）和交错顶点缓冲。 |
-| 3.3 shaders_class | **跳过** | OpenGL 的 shader 编译+链接样板码多达 ~40 行（`glCreateShader` → `glShaderSource` → `glCompileShader` → 错误检查 → `glCreateProgram` → `glAttachShader` ×N → `glLinkProgram` → 错误检查 → `glDeleteShader`），封装成类有明显收益。D3D11 仅需 `D3DCompile` + `CreateVertexShader` + `CreatePixelShader` 三步，且项目中已有的 `CompileShader()` 辅助函数已足够。强行封装反而增加理解负担。 |
-| 3.4 shaders_exercise1 | **保留** → 3.3 | 练习修改 HLSL 顶点着色器逻辑，直接观察效果。D3D11 的等价操作与 OpenGL 一致：改一行 HLSL 代码。 |
-| 3.5 shaders_exercise2 | **保留** → 3.4 | 练习向 Constant Buffer 结构体添加新字段并在 VS 中使用。相比 OpenGL "加一个 uniform" 的教学，D3D11 版本额外训练 C++ 结构体与 HLSL cbuffer 布局的对应关系。 |
-| 3.6 shaders_exercise3 | **保留** → 3.5 | 练习输出顶点位置作为颜色，深入理解光栅化插值行为。HLSL 语义直接替换，与 OpenGL 教学目的一致。 |
+| 3.1 shaders_uniform | **重构** → 3.1 shaders_cbuffer | OpenGL 用 `uniform` + `glUniform4f` 逐变量传递 CPU 数据；D3D11 用 Constant Buffer（整块 GPU 可见内存，`cbuffer` + `CreateBuffer` + `UpdateSubresource` + `*SetConstantBuffers`）。这是 D3D11 最核心的数据通道，不仅是 API 替换而是——从"设一个变量"变成"更新一块 buffer 再绑定到 slot"。3.1 刻意只用 `float4` 字段回避 16 字节对齐问题，先关注 buffer 创建→更新→绑定的核心流程。动画颜色效果与 OpenGL 3.1 一致。 |
+| 3.2 shaders_interpolation | **保留** → 3.2 shaders_interpolation | 光栅化插值是图形学通用概念。D3D11 版本在两个维度上深化：(1) 多属性 InputLayout（POSITION + COLOR）和交错顶点缓冲；(2) **HLSL 语义作为阶段间命名契约**——VS 输出与 PS 输入通过语义名匹配（而非 GLSL 的声明顺序），名字不同则数据错乱。 |
+| 3.3 shaders_class | **跳过** | OpenGL 的 shader 编译+链接样板码多达 ~40 行，封装成类有明显收益。D3D11 仅需 `D3DCompile` + `CreateVertexShader` + `CreatePixelShader` 三步，且项目中已有的 `CompileShader()` 辅助函数已足够。强行封装反而增加理解负担。 |
+| 3.4 shaders_exercise1 | **合并到 3.3** | 原 3.4（改 VS 翻转 Y）和 3.5（给 cbuffer 加 xOffset 字段）各自太单薄，合并为一个练习。合并后引出 D3D11 陷阱——给 cbuffer 加非 `float4` 字段后 C++ struct 需要 padding 匹配 16 字节对齐，否则 UpdateSubresource 数据错位导致三角形随机偏移。 |
+| 3.5 shaders_exercise2 | **合并到 3.3** | 见上。 |
+| 3.6 shaders_exercise3 | **保留** → 3.4 | 练习输出顶点位置作为颜色，深入理解光栅化插值行为。D3D11 视角的追问：(1) 用 `TEXCOORD0` 语义传递位置（证明非 COLOR 语义也能做数据桥梁）；(2) 负值被 Output Merger 固定功能 clamp 到 0，不是 shader 行为。 |
 
 ## D3D11 与 OpenGL 的关键差异点（本章涉及）
 
@@ -34,14 +34,15 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 | 索引缓冲 | EBO (存储在 VAO) | `IASetIndexBuffer` + `DrawIndexed` | 2.2 |
 | 正面绕序 | 默认逆时针 (CCW) | 默认顺时针 (CW) | 2.1, 2.2 |
 | 着色器切换 | `glUseProgram(shaderProgram)` | `VSSetShader` / `PSSetShader` (分阶段独立切换) | 2.5 |
-| CPU→GPU 数据传递 | `uniform` + `glUniform*` (逐变量查询 location) | Constant Buffer (`cbuffer` + `UpdateSubresource` + `*SetConstantBuffers`) | 3.1 |
-| 着色器间数据传递 | `in` / `out` 关键字 | 语义 (Semantics: `COLOR`, `TEXCOORD` 等，`SV_` 为系统语义) | 3.2 |
-| HLSL cbuffer 内存布局 | N/A (GLSL 自动布局) | 16 字节对齐 + `packoffset` 手动控制 | 3.1 |
+| CPU→GPU 数据传递 | `uniform` + `glUniform*` (逐变量查询 location) | Constant Buffer (`cbuffer` + `CreateBuffer` + `UpdateSubresource` + `*SetConstantBuffers`，按 slot 绑定) | 3.1 |
+| 着色器间数据传递 | `in` / `out` 关键字（按声明顺序匹配） | 语义 (Semantics: 按名字匹配；必须用 `COLOR0`/`TEXCOORD0` 带索引形式。PS 输入 struct 布局必须与 VS 输出 struct 完全一致——含 `SV_POSITION` 占位，即使 PS 不用) | 3.1, 3.2 |
+| 阶段间签名验证 | OpenGL linker 自动处理 | D3D11 无 linker，Draw 时校验 VS 输出与 PS 输入签名是否兼容；不兼容则报 `DEVICE_SHADER_LINKAGE_REGISTERINDEX` | 3.1 |
+| HLSL cbuffer 内存布局 | N/A (GLSL 自动布局) | 16 字节对齐规则；C++ struct 必须与 HLSL cbuffer 布局一致 | 3.1 (提及), 3.3 (实战) |
 
 ## D3D11 管线（本章涉及的阶段）
 
 ```
-  Constant Buffer --> Vertex Shader (3.1 加入)
+  Constant Buffer --> Vertex Shader (3.1 加入，3.3 扩展)
        |                  |
   VSSetConstantBuffers  VSSetShader
 
@@ -57,8 +58,8 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 
   Vertex Shader --> Rasterizer --> Pixel Shader --> Output Merger --> BackBuffer
        |                               |                  |
-   语义传递                          PSSetShader     OMSetRenderTargets
-  (COLOR, TEXCOORD 等)      PSSetConstantBuffers (3.1)  (BeginFrame 自动设置)
+   语义传递 (3.2)                  PSSetShader     OMSetRenderTargets
+  (名字匹配契约)           PSSetConstantBuffers (3.1)  (BeginFrame 自动设置)
   
   Constant Buffer --> Pixel Shader (3.1 加入)
        |
@@ -68,17 +69,16 @@ LearnOpenGL 第一章从"打开窗口"开始。D3D11 版本做了以下调整：
 ## 本章学习路径
 
 ```
-2.1 hello_triangle          第一个三角形：InputLayout + VertexBuffer + HLSL + Draw
-2.2 hello_triangle_indexed  索引导出：矩形 = 4 顶点 + 6 索引
+2.1 hello_triangle            第一个三角形：InputLayout + VertexBuffer + HLSL + Draw
+2.2 hello_triangle_indexed    索引导出：矩形 = 4 顶点 + 6 索引
 2.3 hello_triangle_exercise1  同一 VBO 扩至 6 顶点，一次 Draw 画两个三角形
-2.5 hello_triangle_exercise3  两个 PixelShader 切换，两个三角形上不同颜色（待实现）
-3.1 shaders_cbuffer         Constant Buffer：CPU→GPU 数据通道（cbuffer + UpdateSubresource）
-3.2 shaders_interpolation   多属性顶点布局 + HLSL 语义传递 + 光栅化插值
-3.4 shaders_exercise1       修改 HLSL 顶点着色器逻辑
-3.5 shaders_exercise2       扩展 Constant Buffer 字段，CPU/GPU 结构体同步修改
-3.6 shaders_exercise3       输出顶点位置为颜色，深入理解插值
-4.x textures                纹理映射
-5.x transformations         矩阵变换、常量缓冲区传 MVP
-6.x coordinate_systems      坐标系统、深度测试
-7.x camera                  摄像机类、鼠标键盘控制
+2.5 hello_triangle_exercise3  两个 PixelShader 切换，两个三角形上不同颜色
+3.1 shaders_cbuffer           Constant Buffer：CPU→GPU 数据通道（cbuffer + UpdateSubresource），16 字节对齐初识
+3.2 shaders_interpolation     多属性顶点布局 + HLSL 语义命名契约 + 光栅化插值
+3.3 shaders_exercise1         修改 VS + 扩展 cbuffer + 16 字节对齐练习（合并原 3.4+3.5）
+3.4 shaders_exercise2         输出顶点位置为颜色，深入理解插值与 Output Merger clamp
+4.x textures                  纹理映射
+5.x transformations           矩阵变换、常量缓冲区传 MVP
+6.x coordinate_systems        坐标系统、深度测试
+7.x camera                    摄像机类、鼠标键盘控制
 ```

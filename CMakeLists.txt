@@ -81,6 +81,10 @@ set(1.getting_started
     2.2.hello_triangle_indexed
     2.3.hello_triangle_exercise1
     2.5.hello_triangle_exercise3
+    3.1.shaders_cbuffer
+    3.2.shaders_interpolation
+    3.3.shaders_exercise1
+    3.4.shaders_exercise2
 )
 
 # Chapters that need ASSIMP
