@@ -121,19 +121,19 @@ int main()
                                     vsBlob->GetBufferSize(),
                                     nullptr,
                                     vertexShader.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateVertexShader"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateVertexShader"))
         return -1;
 
     hr = device->CreatePixelShader(psBlob1->GetBufferPointer(),
                                    psBlob1->GetBufferSize(), nullptr,
                                    pixelShader1.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreatePixelShader (orange)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreatePixelShader (orange)"))
         return -1;
 
     hr = device->CreatePixelShader(psBlob2->GetBufferPointer(),
                                    psBlob2->GetBufferSize(), nullptr,
                                    pixelShader2.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreatePixelShader (yellow)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreatePixelShader (yellow)"))
         return -1;
 
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
@@ -154,7 +154,7 @@ int main()
                                    vsBlob->GetBufferPointer(),
                                    vsBlob->GetBufferSize(),
                                    inputLayout.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateInputLayout"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateInputLayout"))
         return -1;
     D3D11_BUFFER_DESC vbd1 = {};
     vbd1.Usage          = D3D11_USAGE_DEFAULT;
@@ -164,7 +164,7 @@ int main()
     vertexInitData1.pSysMem = firstTriangle;
     ComPtr<ID3D11Buffer> vertexBuffer1;
     hr = device->CreateBuffer(&vbd1, &vertexInitData1, vertexBuffer1.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (vertex 1)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateBuffer (vertex 1)"))
         return -1;
 
     D3D11_BUFFER_DESC vbd2 = {};
@@ -175,7 +175,7 @@ int main()
     vertexInitData2.pSysMem = secondTriangle;
     ComPtr<ID3D11Buffer> vertexBuffer2;
     hr = device->CreateBuffer(&vbd2, &vertexInitData2, vertexBuffer2.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (vertex 2)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateBuffer (vertex 2)"))
         return -1;
 
     while (!window.ShouldClose()) {

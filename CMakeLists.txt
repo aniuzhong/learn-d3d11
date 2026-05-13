@@ -60,6 +60,7 @@ add_library(STB_IMAGE STATIC src/stb_image.cpp)
 # Utils — win32::Window + D3D11 Helpers
 add_library(Utils STATIC
     src/utils/Window.cpp
+    src/utils/Helpers.cpp
     includes/utils/Window.h
     includes/utils/Helpers.h
 )

@@ -105,13 +105,13 @@ int main()
                                             vsBlob->GetBufferSize(),
                                             nullptr,
                                             vertexShader.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateVertexShader"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateVertexShader"))
         return -1;
 
     hr = device->CreatePixelShader(psBlob->GetBufferPointer(),
                                    psBlob->GetBufferSize(), nullptr,
                                    pixelShader.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreatePixelShader"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreatePixelShader"))
         return -1;
 
     // 4. 创建 InputLayout
@@ -138,7 +138,7 @@ int main()
                                    vsBlob->GetBufferPointer(), // 对着色器签名验证布局是否匹配
                                    vsBlob->GetBufferSize(),
                                    inputLayout.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateInputLayout"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateInputLayout"))
         return -1;
 
     // 5. 创建 VertexBuffer
@@ -152,7 +152,7 @@ int main()
 
     ComPtr<ID3D11Buffer> vertexBuffer; // 在 OpenGL 中，vertexBuffer 的对应是 VBO
     hr = device->CreateBuffer(&vbd, &initData, vertexBuffer.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (vertex)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateBuffer (vertex)"))
         return -1;
 
     // 6. 渲染循环
@@ -163,22 +163,14 @@ int main()
         ClearDepthStencil(d3dContext.Get(), rtv.Get(), dsv.Get());
 
         // 设置管线的每个阶段
-        // ---- Input Assembler ----
         const UINT stride = 3 * sizeof(float);
         const UINT offset = 0;
         context->IASetInputLayout(inputLayout.Get());
         context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
         context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        // ---- Vertex Shader ----
         context->VSSetShader(vertexShader.Get(), nullptr, 0);
-        // ---- Pixel Shader ----
         context->PSSetShader(pixelShader.Get(), nullptr, 0);
-        // ---- Output Merger ----
-        // RTV 和 DSV 已在 BeginFrame 中设置
-
-        // 绘制
         context->Draw(3, 0);
-
         Present(swapChain.Get());
     }
 

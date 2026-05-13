@@ -154,12 +154,12 @@ int main()
                                             vsBlob->GetBufferSize(),
                                             nullptr,
                                             vertexShader.GetAddressOf());
-    if (!D3dHrOk(hr, "CreateVertexShader")) return -1;
+    if (!HrSucceeded(hr, "CreateVertexShader")) return -1;
 
     hr = device->CreatePixelShader(psBlob->GetBufferPointer(),
                                    psBlob->GetBufferSize(), nullptr,
                                    pixelShader.GetAddressOf());
-    if (!D3dHrOk(hr, "CreatePixelShader")) return -1;
+    if (!HrSucceeded(hr, "CreatePixelShader")) return -1;
 
     // 4. 创建 InputLayout
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
@@ -179,7 +179,7 @@ int main()
                                    vsBlob->GetBufferPointer(),
                                    vsBlob->GetBufferSize(),
                                    inputLayout.GetAddressOf());
-    if (!D3dHrOk(hr, "CreateInputLayout")) return -1;
+    if (!HrSucceeded(hr, "CreateInputLayout")) return -1;
 
     // 5. 创建 VertexBuffer
     D3D11_BUFFER_DESC vbd = {};
@@ -192,7 +192,7 @@ int main()
 
     ComPtr<ID3D11Buffer> vertexBuffer;
     hr = device->CreateBuffer(&vbd, &vInitData, vertexBuffer.GetAddressOf());
-    if (!D3dHrOk(hr, "CreateBuffer (vertex)")) return -1;
+    if (!HrSucceeded(hr, "CreateBuffer (vertex)")) return -1;
 
     // 6. 创建 Constant Buffer
     //
@@ -211,7 +211,7 @@ int main()
     hr = device->CreateBuffer(&cbd, nullptr, constantBuffer.GetAddressOf());
     //                          ↑ 初始数据为 nullptr：首帧在循环中通过
     //                            UpdateSubresource 写入
-    if (!D3dHrOk(hr, "CreateBuffer (constant)")) return -1;
+    if (!HrSucceeded(hr, "CreateBuffer (constant)")) return -1;
 
     // 7. 渲染循环
     while (!window.ShouldClose()) {

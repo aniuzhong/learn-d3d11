@@ -77,13 +77,13 @@ int main()
                                             vsBlob->GetBufferSize(),
                                             nullptr,
                                             vertexShader.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateVertexShader"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateVertexShader"))
         return -1;
 
     hr = device->CreatePixelShader(psBlob->GetBufferPointer(),
                                    psBlob->GetBufferSize(), nullptr,
                                    pixelShader.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreatePixelShader"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreatePixelShader"))
         return -1;
 
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
@@ -103,7 +103,7 @@ int main()
                                    vsBlob->GetBufferPointer(),
                                    vsBlob->GetBufferSize(),
                                    inputLayout.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateInputLayout"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateInputLayout"))
         return -1;
 
     D3D11_BUFFER_DESC vbd = {};
@@ -116,7 +116,7 @@ int main()
 
     ComPtr<ID3D11Buffer> vertexBuffer;
     hr = device->CreateBuffer(&vbd, &vertexInitData, vertexBuffer.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (vertex)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateBuffer (vertex)"))
         return -1;
 
     // 1. 准备索引数据 (CPU 端)
@@ -139,7 +139,7 @@ int main()
 
     ComPtr<ID3D11Buffer> indexBuffer;
     hr = device->CreateBuffer(&ibd, &indexInitData, indexBuffer.GetAddressOf());
-    if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (index)"))
+    if (!HrSucceeded(hr, "ID3D11Device::CreateBuffer (index)"))
         return -1;
 
     while (!window.ShouldClose()) {
