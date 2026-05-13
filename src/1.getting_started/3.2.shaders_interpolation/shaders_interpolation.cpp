@@ -3,8 +3,8 @@
 
 #include <iostream>
 
-#include <framework/Framework.h>
-#include <framework/HrCheck.h>
+#include <utils/Window.h>
+#include <utils/Helpers.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -73,46 +73,40 @@ const char* pixelShaderSource = R"(
     }
 )";
 
-// ---- 辅助函数 ----
-
-ComPtr<ID3DBlob> CompileShader(const char* source, const char* entryPoint,
-                               const char* target)
-{
-    ComPtr<ID3DBlob> shaderBlob;
-    ComPtr<ID3DBlob> errorBlob;
-
-    HRESULT hr = D3DCompile(
-        source, strlen(source),
-        nullptr, nullptr, nullptr,
-        entryPoint, target,
-        0, 0,
-        shaderBlob.GetAddressOf(),
-        errorBlob.GetAddressOf());
-
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            std::cerr << "Shader compilation error:\n"
-                      << static_cast<const char*>(errorBlob->GetBufferPointer())
-                      << std::endl;
-        } else {
-            D3dLogHrFailure(hr, "D3DCompile");
-        }
-        return nullptr;
-    }
-    return shaderBlob;
-}
-
 int main()
 {
-    // 1. 初始化 Framework
-    Framework fw({.title = L"3.2 Shaders Interpolation", .width = 800, .height = 600});
-    if (!fw.Initialize()) {
-        std::cerr << "Failed to initialize Framework." << std::endl;
+    // 1. 创建窗口
+    win32::Window window({.title = L"3.2 Shaders Interpolation", .width = 800, .height = 600});
+    if (!window.Get()) {
+        std::cerr << "Failed to create window." << std::endl;
         return -1;
     }
 
-    ID3D11Device*        device  = fw.GetDevice();
-    ID3D11DeviceContext* context = fw.GetContext();
+    // 2. 创建 D3D11 设备 + SwapChain
+    ComPtr<ID3D11Device>        d3dDevice;
+    ComPtr<ID3D11DeviceContext> d3dContext;
+    ComPtr<IDXGISwapChain>      swapChain;
+    if (!CreateDeviceAndSwapChain(window.Get(), 800, 600, d3dDevice, d3dContext, swapChain)) {
+        std::cerr << "Failed to create D3D11 device." << std::endl;
+        return -1;
+    }
+
+    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11DepthStencilView> dsv;
+    D3D11_VIEWPORT                 vp;
+    if (!CreateBackBuffer(d3dDevice.Get(), swapChain.Get(), 800, 600,
+                          1, rtv, dsv, vp)) {
+        std::cerr << "Failed to create backbuffer." << std::endl;
+        return -1;
+    }
+
+    window.on_framebuffer_size_ = [&](int w, int h) {
+        ResizeBackBuffer(d3dDevice.Get(), swapChain.Get(), d3dContext.Get(),
+                         w, h, DXGI_FORMAT_R8G8B8A8_UNORM, 1, rtv, dsv, vp);
+    };
+
+    ID3D11Device*        device  = d3dDevice.Get();
+    ID3D11DeviceContext* context = d3dContext.Get();
 
     // 2. 顶点数据：POSITION + COLOR 交错排列
     //
@@ -202,8 +196,11 @@ int main()
     if (!D3dHrOk(hr, "CreateBuffer (vertex)")) return -1;
 
     // 6. 渲染循环
-    while (fw.IsRunning()) {
-        fw.BeginFrame();
+    while (!window.ShouldClose()) {
+        window.PollEvents();
+        ClearBackBuffer(d3dContext.Get(), rtv.Get(), dsv.Get(), vp,
+                        0.2f, 0.3f, 0.3f, 1.0f);
+        ClearDepthStencil(d3dContext.Get(), rtv.Get(), dsv.Get());
 
         // ---- 设置管线 ----
         // Input Assembler
@@ -223,9 +220,8 @@ int main()
         // 绘制
         context->Draw(3, 0);
 
-        fw.EndFrame();
+        Present(swapChain.Get());
     }
 
-    fw.Shutdown();
     return 0;
 }

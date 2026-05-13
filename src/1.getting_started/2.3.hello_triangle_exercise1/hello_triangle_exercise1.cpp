@@ -7,8 +7,8 @@
 
 #include <iostream>
 
-#include <framework/Framework.h>
-#include <framework/HrCheck.h>
+#include <utils/Window.h>
+#include <utils/Helpers.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -26,46 +26,37 @@ const char* pixelShaderSource = R"(
     }
 )";
 
-ComPtr<ID3DBlob> CompileShader(const char* source, const char* entryPoint,
-                               const char* target)
-{
-    ComPtr<ID3DBlob> shaderBlob;
-    ComPtr<ID3DBlob> errorBlob;
-
-    HRESULT hr = D3DCompile(
-        source,
-        strlen(source),
-        nullptr,
-        nullptr,
-        nullptr,
-        entryPoint,
-        target,
-        0,
-        0,
-        shaderBlob.GetAddressOf(),
-        errorBlob.GetAddressOf());
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            std::cerr << "Shader compilation error:\n"
-                      << static_cast<const char*>(errorBlob->GetBufferPointer())
-                      << std::endl;
-        } else {
-            D3dLogHrFailure(hr, "D3DCompile");
-        }
-        return nullptr;
-    }
-    return shaderBlob;
-}
-
 int main() {
-    Framework fw({.title = L"2.3 Hello Triangle Exercise 1", .width = 800, .height = 600});
-    if (!fw.Initialize()) {
-        std::cerr << "Failed to initialize Framework." << std::endl;
+    win32::Window window({.title = L"2.3 Hello Triangle Exercise 1", .width = 800, .height = 600});
+    if (!window.Get()) {
+        std::cerr << "Failed to create window." << std::endl;
         return -1;
     }
 
-    ID3D11Device*        device  = fw.GetDevice();
-    ID3D11DeviceContext* context = fw.GetContext();
+    ComPtr<ID3D11Device>        d3dDevice;
+    ComPtr<ID3D11DeviceContext> d3dContext;
+    ComPtr<IDXGISwapChain>      swapChain;
+    if (!CreateDeviceAndSwapChain(window.Get(), 800, 600, d3dDevice, d3dContext, swapChain)) {
+        std::cerr << "Failed to create D3D11 device." << std::endl;
+        return -1;
+    }
+
+    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11DepthStencilView> dsv;
+    D3D11_VIEWPORT                 vp;
+    if (!CreateBackBuffer(d3dDevice.Get(), swapChain.Get(), 800, 600,
+                          1, rtv, dsv, vp)) {
+        std::cerr << "Failed to create backbuffer." << std::endl;
+        return -1;
+    }
+
+    window.on_framebuffer_size_ = [&](int w, int h) {
+        ResizeBackBuffer(d3dDevice.Get(), swapChain.Get(), d3dContext.Get(),
+                         w, h, DXGI_FORMAT_R8G8B8A8_UNORM, 1, rtv, dsv, vp);
+    };
+
+    ID3D11Device*        device  = d3dDevice.Get();
+    ID3D11DeviceContext* context = d3dContext.Get();
 
     // 定义顶点数据
     //   注意 D3D11 默认正面 = 顺时针绕序（OpenGL 是逆时针）。
@@ -141,10 +132,11 @@ int main() {
     if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (vertex)"))
         return -1;
 
-    while (fw.IsRunning()) {
-        fw.PollEvents();
-        fw.ClearBackBuffer(0.2f, 0.3f, 0.3f, 1.0f);
-        fw.ClearDepthStencil();
+    while (!window.ShouldClose()) {
+        window.PollEvents();
+        ClearBackBuffer(d3dContext.Get(), rtv.Get(), dsv.Get(), vp,
+                        0.2f, 0.3f, 0.3f, 1.0f);
+        ClearDepthStencil(d3dContext.Get(), rtv.Get(), dsv.Get());
 
         const UINT stride = 3 * sizeof(float);
         const UINT offset = 0;
@@ -155,9 +147,8 @@ int main() {
         context->PSSetShader(pixelShader.Get(), nullptr, 0);
         context->Draw(numVertices, 0);
 
-        fw.SwapBuffers();
+        Present(swapChain.Get());
     }
 
-    fw.Shutdown();
     return 0;
 }

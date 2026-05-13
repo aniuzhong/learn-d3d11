@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <iostream>
 
-#include <framework/Framework.h>
-#include <framework/HrCheck.h>
+#include <utils/Window.h>
+#include <utils/Helpers.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -23,47 +23,38 @@ const char* pixelShaderSource = R"(
     }
 )";
 
-ComPtr<ID3DBlob> CompileShader(const char* source, const char* entryPoint,
-                               const char* target)
-{
-    ComPtr<ID3DBlob> shaderBlob;
-    ComPtr<ID3DBlob> errorBlob;
-
-    HRESULT hr = D3DCompile(
-        source, strlen(source),
-        nullptr,
-        nullptr,
-        nullptr,
-        entryPoint,
-        target,
-        0,
-        0,
-        shaderBlob.GetAddressOf(),
-        errorBlob.GetAddressOf());
-
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            std::cerr << "Shader compilation error:\n"
-                      << static_cast<const char*>(errorBlob->GetBufferPointer())
-                      << std::endl;
-        } else {
-            D3dLogHrFailure(hr, "D3DCompile");
-        }
-        return nullptr;
-    }
-    return shaderBlob;
-}
-
 int main()
 {
-    Framework fw({.title = L"2.2 Hello Triangle Indexed", .width = 800, .height = 600});
-    if (!fw.Initialize()) {
-        std::cerr << "Failed to initialize Framework." << std::endl;
+    win32::Window window({.title = L"2.2 Hello Triangle Indexed", .width = 800, .height = 600});
+    if (!window.Get()) {
+        std::cerr << "Failed to create window." << std::endl;
         return -1;
     }
 
-    ID3D11Device*        device  = fw.GetDevice();
-    ID3D11DeviceContext* context = fw.GetContext();
+    ComPtr<ID3D11Device>        d3dDevice;
+    ComPtr<ID3D11DeviceContext> d3dContext;
+    ComPtr<IDXGISwapChain>      swapChain;
+    if (!CreateDeviceAndSwapChain(window.Get(), 800, 600, d3dDevice, d3dContext, swapChain)) {
+        std::cerr << "Failed to create D3D11 device." << std::endl;
+        return -1;
+    }
+
+    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11DepthStencilView> dsv;
+    D3D11_VIEWPORT                 vp;
+    if (!CreateBackBuffer(d3dDevice.Get(), swapChain.Get(), 800, 600,
+                          1, rtv, dsv, vp)) {
+        std::cerr << "Failed to create backbuffer." << std::endl;
+        return -1;
+    }
+
+    window.on_framebuffer_size_ = [&](int w, int h) {
+        ResizeBackBuffer(d3dDevice.Get(), swapChain.Get(), d3dContext.Get(),
+                         w, h, DXGI_FORMAT_R8G8B8A8_UNORM, 1, rtv, dsv, vp);
+    };
+
+    ID3D11Device*        device  = d3dDevice.Get();
+    ID3D11DeviceContext* context = d3dContext.Get();
 
     // 4 个顶点（矩形四角），供 2 个三角形通过索引共享顶点
     // 注意 D3D11 正面 = 顺时针绕序
@@ -151,8 +142,11 @@ int main()
     if (!D3dHrOk(hr, "ID3D11Device::CreateBuffer (index)"))
         return -1;
 
-    while (fw.IsRunning()) {
-        fw.BeginFrame();
+    while (!window.ShouldClose()) {
+        window.PollEvents();
+        ClearBackBuffer(d3dContext.Get(), rtv.Get(), dsv.Get(), vp,
+                        0.2f, 0.3f, 0.3f, 1.0f);
+        ClearDepthStencil(d3dContext.Get(), rtv.Get(), dsv.Get());
         const UINT stride = 3 * sizeof(float);
         const UINT offset = 0;
         context->IASetInputLayout(inputLayout.Get());
@@ -169,9 +163,8 @@ int main()
         // 4. 使用索引绘制：6 个索引 = 2 个三角形 = 1 个矩形
         // 与 LearnOpenGL 的 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0) 等效
         context->DrawIndexed(6, 0, 0);
-        fw.EndFrame();
+        Present(swapChain.Get());
     }
 
-    fw.Shutdown();
     return 0;
 }

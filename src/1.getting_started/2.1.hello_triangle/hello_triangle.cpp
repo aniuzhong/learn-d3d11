@@ -3,8 +3,8 @@
 
 #include <iostream>
 
-#include <framework/Framework.h>
-#include <framework/HrCheck.h>
+#include <utils/Window.h>
+#include <utils/Helpers.h>
 
 using Microsoft::WRL::ComPtr;
 
@@ -45,50 +45,40 @@ const char* pixelShaderSource = R"(
     }
 )";
 
-// 编译 HLSL 的辅助函数
-
-ComPtr<ID3DBlob> CompileShader(const char* source, const char* entryPoint,
-                               const char* target)
-{
-    ComPtr<ID3DBlob> shaderBlob;
-    ComPtr<ID3DBlob> errorBlob;
-
-    HRESULT hr = D3DCompile(
-        source, strlen(source),          // 源码及其长度
-        nullptr,                         // 可选的文件名（用于错误信息）
-        nullptr,                         // 宏定义
-        nullptr,                         // include 处理器
-        entryPoint,                      // 入口函数名
-        target,                          // 着色器模型（如 "vs_5_0", "ps_5_0"）
-        0,                               // 编译标志（D3DCOMPILE_DEBUG 等）
-        0,                               // 效果编译标志
-        shaderBlob.GetAddressOf(),
-        errorBlob.GetAddressOf());
-
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            std::cerr << "Shader compilation error:\n"
-                      << static_cast<const char*>(errorBlob->GetBufferPointer())
-                      << std::endl;
-        } else {
-            D3dLogHrFailure(hr, "D3DCompile");
-        }
-        return nullptr;
-    }
-    return shaderBlob;
-}
-
 int main()
 {
-    // 1. 初始化 Framework（窗口 + D3D11 设备 + SwapChain）
-    Framework fw({.title = L"2.1 Hello Triangle", .width = 800, .height = 600});
-    if (!fw.Initialize()) {
-        std::cerr << "Failed to initialize Framework." << std::endl;
+    // 1. 创建窗口
+    win32::Window window({.title = L"2.1 Hello Triangle", .width = 800, .height = 600});
+    if (!window.Get()) {
+        std::cerr << "Failed to create window." << std::endl;
         return -1;
     }
 
-    ID3D11Device*        device  = fw.GetDevice();
-    ID3D11DeviceContext* context = fw.GetContext();
+    // 2. 创建 D3D11 设备 + SwapChain
+    ComPtr<ID3D11Device>        d3dDevice;
+    ComPtr<ID3D11DeviceContext> d3dContext;
+    ComPtr<IDXGISwapChain>      swapChain;
+    if (!CreateDeviceAndSwapChain(window.Get(), 800, 600, d3dDevice, d3dContext, swapChain)) {
+        std::cerr << "Failed to create D3D11 device." << std::endl;
+        return -1;
+    }
+
+    ComPtr<ID3D11RenderTargetView> rtv;
+    ComPtr<ID3D11DepthStencilView> dsv;
+    D3D11_VIEWPORT                 vp;
+    if (!CreateBackBuffer(d3dDevice.Get(), swapChain.Get(), 800, 600,
+                          1, rtv, dsv, vp)) {
+        std::cerr << "Failed to create backbuffer." << std::endl;
+        return -1;
+    }
+
+    window.on_framebuffer_size_ = [&](int w, int h) {
+        ResizeBackBuffer(d3dDevice.Get(), swapChain.Get(), d3dContext.Get(),
+                         w, h, DXGI_FORMAT_R8G8B8A8_UNORM, 1, rtv, dsv, vp);
+    };
+
+    ID3D11Device*        device  = d3dDevice.Get();
+    ID3D11DeviceContext* context = d3dContext.Get();
 
     // 2. 定义顶点数据
     // 注意 D3D11 默认正面 = 顺时针绕序（OpenGL 是逆时针）。
@@ -166,8 +156,11 @@ int main()
         return -1;
 
     // 6. 渲染循环
-    while (fw.IsRunning()) {
-        fw.BeginFrame(); // PollEvents + ClearRenderTargetView + ClearDepthStencilView
+    while (!window.ShouldClose()) {
+        window.PollEvents();
+        ClearBackBuffer(d3dContext.Get(), rtv.Get(), dsv.Get(), vp,
+                        0.2f, 0.3f, 0.3f, 1.0f);
+        ClearDepthStencil(d3dContext.Get(), rtv.Get(), dsv.Get());
 
         // 设置管线的每个阶段
         // ---- Input Assembler ----
@@ -186,11 +179,8 @@ int main()
         // 绘制
         context->Draw(3, 0);
 
-        fw.EndFrame(); // Present
+        Present(swapChain.Get());
     }
 
-    // 7. 清理
-    // ComPtr 自动释放，Framework 析构时释放 Device / Context / SwapChain
-    fw.Shutdown();
     return 0;
 }

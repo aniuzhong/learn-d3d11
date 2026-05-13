@@ -57,16 +57,15 @@ include_directories(${CMAKE_BINARY_DIR}/configuration)
 # stb_image — single-header image loader, compiled once
 add_library(STB_IMAGE STATIC src/stb_image.cpp)
 
-# Framework — window + D3D11 device + input + timing
-add_library(Framework STATIC
-    src/framework/Framework.cpp
-    includes/framework/Framework.h
-    includes/framework/HrCheck.h
+# Utils — win32::Window + D3D11 Helpers
+add_library(Utils STATIC
+    src/utils/Window.cpp
+    includes/utils/Window.h
+    includes/utils/Helpers.h
 )
-target_include_directories(Framework PUBLIC ${CMAKE_SOURCE_DIR}/includes)
-target_link_libraries(Framework PUBLIC d3d11 dxgi)
-# Framework users also get these (PUBLIC means consumers inherit)
-target_compile_options(Framework PRIVATE /std:c++20 /W4)
+target_include_directories(Utils PUBLIC ${CMAKE_SOURCE_DIR}/includes)
+target_link_libraries(Utils PUBLIC d3d11 dxgi d3dcompiler)
+target_compile_options(Utils PRIVATE /std:c++20 /W4)
 
 # =============================================================================
 # Chapter & demo definitions
@@ -114,7 +113,7 @@ function(create_demo chapter demo)
     add_executable(${target_name} ${SOURCES})
 
     # Link libraries
-    target_link_libraries(${target_name} PRIVATE Framework STB_IMAGE d3d11 dxgi d3dcompiler)
+    target_link_libraries(${target_name} PRIVATE Utils STB_IMAGE d3d11 dxgi d3dcompiler)
     if(${chapter} IN_LIST ASSIMP_CHAPTERS AND ASSIMP_FOUND)
         target_link_libraries(${target_name} PRIVATE ${ASSIMP_LIBRARY})
         target_compile_definitions(${target_name} PRIVATE HAS_ASSIMP)
